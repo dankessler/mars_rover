@@ -18,12 +18,21 @@ Problem Description:
         1 <= N, L, B < 2**32
         1 <= C <= 100000
 '''
-import RoverConnection.ConnectionFactory
-import RoverImage.ImageFactory
+from RoverConnection import ConnectionFactory
+from RoverImage import ImageFactory
+
+from RoverImage import RoverImage
+from RoverImage import Chunk
+from RoverImage import Segment
 
 if __name__ == '__main__':
-    connInfo = ConnectionFactory.connInfoFromStdIn()
-    imageChunks = ImageFactory.imageChunksFromStdIn(connInfo)
+    self.connInfo = ConnectionFactory.connInfoFromStdIn()
+    self.imageChunks = ImageFactory.imageChunksFromStdIn(self.connInfo)
 
     roverImage = RoverImage(imageChunks)
-    roverImage.preprocessChunks()
+
+    print(roverImage)
+
+    segment = roverImage.getOptimalImageSegment(self.connInfo)
+    if (segment is not None):
+        print(segment.dlTime)

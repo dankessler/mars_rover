@@ -22,9 +22,9 @@ class ConnInfo(object):
     def numChunks(self):
         return self.paramInfo[_CHUNK_COUNT_KEY_]
 
-    def getDownloadTime(self, chunkSize):
+    def getDlTime(self, chunk):
         return float((2 * self.paramInfo[_LATENCY_KEY_]) +
-                     (chunkSize / self.paramInfo[_BANDWIDTH_KEY_]))
+                     (chunk.size() / self.paramInfo[_BANDWIDTH_KEY_]))
 
     def paramsToStr(self):
         paramsAsStr = ''

@@ -1,10 +1,13 @@
+from copy import deepcopy
+
 class RoverImage(object):
     def __init__(self, chunks):
         self.chunks = chunks 
+        self.segments = [Segment()]
+        self.optimalSegment = None
 
     def __str__(self):
-        print('image chunks:')
-        print(self.chunksToStr())
+        return ('image chunks:\n%s' % self.chunksToStr())
 
     '''
     stringify the chunks of this image
@@ -22,125 +25,51 @@ class RoverImage(object):
     the workhorse method for solving the mars rover image reconstruction
     problem
     '''
-    def calcImageReconstructionTime(self, connInfo):
-        segmentEnds   = {}
-        segmentStarts = {}
-        segmentDict   = {}
+    def getOptimalImageSegment(self, connInfo):
+        while (len(self.segments) > 0):
+            self.extendSegments(connInfo)
+            self.checkForOptimalSegment(connInfo)
 
-        for chunk in self.chunks:
-            dlTime = connInfo.getDownloadTime(chunk.size())
+        return self.optimalSegment
 
-            if (len(segmentDict) == 0):
-                chunkSegment = Segment(chunk.start(), chunk.end(), dlTime)
-                segmentDict[dlTime] = [chunkSegment]
-                segmentEnds[chunk.end()] = [chunkSegment]
-                segmentStarts[chunk.start()] = [chunkSegment]
-                next
+    def extendSegments(self, connInfo):
+        extendedSegments = []
 
-            if (chunk.end() not in segmentEnds):
-                segmentEnds[chunk.end()] = []
+        for segment in self.segments:
+            for chunk in self.chunks:
+                if (segment.isDiscoverable(chunk)):
+                    extendedSegments.append(Segment.extend(
+                        segment, chunk, connInfo.getDlTime(chunk)
+                    ))
 
-            if (chunk.start() not in segmentStarts):
-                segmentStarts[chunk.start()] = []
+        # once all segments have been extended, we throw away the old queue of
+        # segments and continue computation with only the extended segments
+        self.segments = extendedSegments
 
-            # segment suffixes
-            self.extendContigSegments(segmentDict, segmentEnds, connInfo, chunk, chunk.start())
-            segmentEnds[chunk.end()].append(Segment(chunk.start(), chunk.end(), dlTime))
+    def checkForOptimalSegment(self, connInfo):
+        potentialSegments = []
 
-            # segment prefixes
-            self.extendContigSegments(segmentDict, segmentStarts, connInfo, chunk, chunk.end())
-            segmentStarts[chunk.start()].append(Segment(chunk.start(), chunk.end(), dlTime))
+        for segment in self.segments:
+            if (segment.size() == connInfo.imageSize()):
+                if (self.optimalSegment is None or
+                    segment.dlTime < self.optimalSegment.dlTime):
+                    self.optimalSegment = segment
 
-        return self.determineOptimalDownloadTime(segmentDict, connInfo)
+            elif (self.optimalSegment is None or
+                  segment.dlTime <= self.optimalSegment.dlTime):
+                potentialSegments.append(segment)
 
-    '''
-    Search for other image segments that align with the beginning or end of
-    this chunk. For all such image segments, remove any that have the same
-    start and end byte indices *and* download time as this segment. Finally,
-    add the new segment to the list of segments to keep track of
-    '''
-    def extendContigSegments(self, segmentByDownload, segmentByBoundary, connInfo, chunk, boundary):
-        dlTime = connInfo.getDownloadTime(chunk.size())
-
-        if (dlTime not in segmentByDownload):
-            segmentByDownload[dlTime] = []
-
-        print('number of contiguous segments to extend: %d' % len(self.findContiguousSegments(segmentByBoundary, boundary)))
-
-        for contigSegment in self.findContiguousSegments(segmentByBoundary, boundary):
-            # newly extended segment (previous segment with this chunk attached
-            # to the beginning or end)
-            segment = contigSegment.addChunk(chunk, dlTime)
-
-            # remove redundant segments from consideration
-            self.getPrunedSegmentsByDownload(segmentByDownload[dlTime], segment)
-
-            # add this new segment for consideration
-            segmentByDownload[dlTime].append(segment)
-            print('added segment with download time %d to segmentDict' % dlTime)
-
-    '''
-    retrieve a list of segments that align to the given boundary (are
-    contiguous)
-    '''
-    def findContiguousSegments(self, segmentDict, chunkBoundary):
-        if (chunkBoundary in segmentDict):
-            return segmentDict[chunkBoundary]
-        return []
-
-    '''
-    construct a new list representing segments that are not considered
-    redundant
-    '''
-    def getPrunedSegmentsByDownload(self, segmentsByDownload, segment):
-        segments = []
-
-        for oldSeg in segmentsByDownload:
-            if (not segment.containsChunk(oldSeg)):
-                segments.append(oldSeg)
-
-        return segments
-
-    '''
-    Searches through the dictionary of downloadTime -> Segment in order to
-    determine the minimum download time that retrieves the full Image from the
-    rover
-    '''
-    def determineOptimalDownloadTime(self, segmentDict, connInfo):
-        optimalDownloadTime = None
-        optimalSegment = None
-
-        print('%d entries in segment dictionary' % len(segmentDict.items()))
-
-        for (downloadTime, segments) in segmentDict.items():
-            if (optimalDownloadTime is None):
-                optimalDownloadTime = downloadTime
-
-            print('%d segments have download time %.02f' % (len(segments), downloadTime))
-
-            for segment in segments:
-                print('segment size: %d' % segment.size())
-                print('image size: %d' % connInfo.imageSize())
-
-                if (segment.size() == connInfo.imageSize()):
-                    print('optimal download time: %.02f' % optimalDownloadTime)
-                    print('segment download time: %.02f' % downloadTime)
-
-                    if (downloadTime < optimalDownloadTime):
-                        print('segment is optimal')
-
-                        optimalDownloadTime = downloadTime
-                        optimalSegment = segment
-
-        if (optimalSegment is not None):
-            print('start: %d end: %d' % (optimalSegment.start(), optimalSegment.end()))
-
-        return optimalDownloadTime
+        # all extended segments are either pruned or maintained as potentially
+        # optimal segments. We throw away the old queue of segments
+        self.segments = potentialSegments
 
 class Chunk(object):
     def __init__(self, startByte, endByte):
         self.startByte = startByte
         self.endByte = endByte
+
+    def size(self):
+        return abs(self.endByte - self.startByte)
 
     def start(self, newStart=None):
         if (newStart is not None):
@@ -154,43 +83,34 @@ class Chunk(object):
 
         return self.endByte
 
-    def size(self):
-        return self.endByte - self.startByte
+    def isAligned(self, chunk):
+        return chunk.start() == self.start() or chunk.end() == self.end()
 
-    def isContiguous(self, otherChunk):
-        return self.endByte == otherChunk.startByte
+    def isShifted(self, chunk):
+        return chunk.start() > self.start() and chunk.end() > self.end()
 
-    def hasSameStart(self, otherChunk):
-        return self.startByte == otherChunk.startByte
-
-    def hasSameEnd(self, otherChunk):
-        return self.endByte == otherChunk.endByte
-
-    def overlapsWithChunk(self, otherChunk):
-        return (self.containsBytePos(otherChunk.start()) or
-                self.containsBytePos(otherChunk.end()))
-
-    def containsChunk(self, otherChunk):
-        return (self.containsBytePos(otherChunk.start()) and
-                self.containsBytePos(otherChunk.end()))
-
-    def containsBytePos(self, bytePos):
-        return (bytePos >= self.startByte and bytePos < self.endByte)
+    def isOverlapping(self, chunk):
+        return chunk.start() <= self.end()
 
 class Segment(Chunk):
-    def __init__(self, startByte, endByte, downloadTime):
+    def __init__(self, startByte=0, endByte=0, dlTime=0, chunks=[]):
         super(Segment, self).__init__(startByte, endByte)
 
-        self.downloadTime = downloadTime
+        self.dlTime = dlTime
+        self.chunks = chunks
 
-    def download(self):
-        return self.downloadTime
+    def addTime(self, addTime):
+        return self.dlTime + addTime
 
-    def addChunk(self, chunk, downloadTime):
-        newStart = min(self.start(), chunk.start())
-        newEnd = min(self.end(), chunk.end())
+    def isDiscoverable(self, chunk):
+        return (self.end() == chunk.start() or
+               (self.isOverlapping(chunk) and self.isShifted(chunk)))
 
-        return Segment(newStart, newEnd, self.downloadTime + downloadTime)
+    def extend(segment, chunk, dlTime):
+        chunkSeq = deepcopy(segment.chunks)
+        chunkSeq.append(chunk)
+
+        return Segment(segment.start(), chunk.end(), segment.addTime(dlTime), chunkSeq)
 
 class ImageFactory(object):
     def imageChunksFromStdIn(connInfo):
@@ -200,4 +120,5 @@ class ImageFactory(object):
             (startByte, endByte) = str(input()).split(',')
             chunks.append(Chunk(int(startByte), int(endByte)))
 
-        return chunks
+        return sorted(sorted(chunks, key=lambda chunk: chunk.end()),
+                      key=lambda chunk: chunk.start())

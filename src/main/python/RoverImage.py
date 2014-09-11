@@ -6,21 +6,6 @@ class RoverImage(object):
         self.segments = [Segment()]
         self.optimalSegment = None
 
-    def __str__(self):
-        return ('image chunks:\n%s' % self.chunksToStr())
-
-    '''
-    stringify the chunks of this image
-    '''
-    def chunksToStr(self):
-        chunksAsStr = ''
-
-        for chunk in self.chunks:
-            chunksAsStr += ('start: %d | end: %d\n' %
-                            (chunk.start(), chunk.end()))
-
-        return chunksAsStr
-
     '''
     the workhorse method for solving the mars rover image reconstruction
     problem
@@ -92,6 +77,9 @@ class Chunk(object):
     def isOverlapping(self, chunk):
         return chunk.start() <= self.end()
 
+    def __str__(self):
+        return '[%d, %d]' % (self.start(), self.end())
+
 class Segment(Chunk):
     def __init__(self, startByte=0, endByte=0, dlTime=0, chunks=[]):
         super(Segment, self).__init__(startByte, endByte)
@@ -111,6 +99,14 @@ class Segment(Chunk):
         chunkSeq.append(chunk)
 
         return Segment(segment.start(), chunk.end(), segment.addTime(dlTime), chunkSeq)
+
+    def __str__(self):
+        chunkStrList = []
+
+        for chunk in self.chunks:
+            chunkStrList.append(str(chunk))
+
+        return ','.join(chunkStrList)
 
 class ImageFactory(object):
     def imageChunksFromStdIn(connInfo):

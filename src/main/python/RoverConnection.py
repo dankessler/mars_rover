@@ -34,6 +34,9 @@ class ConnInfo(object):
 
         return paramsAsStr
 
+    def __str__(self):
+        return self.paramsToStr()
+
 class ConnectionFactory(object):
     # context params are in order of expected input
     _CONTEXT_PARAMS_ = (_BYTE_COUNT_KEY_, _LATENCY_KEY_,

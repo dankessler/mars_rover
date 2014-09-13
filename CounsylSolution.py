@@ -1,3 +1,128 @@
+'''
+################################################################################
+#
+# Initial attempts/ideas
+#
+################################################################################
+
+There were a couple different approaches I tried to apply to the given problem
+but that very quickly did not pan out.
+
+Reading the problem statement I immediately though dynamic programming, but had
+difficulty trying to think of how to phrase the problem in such a way as
+to have a sub problem that could be optimized.
+
+Given that a dynamic programming approach wasn't applicable, my fallback
+approach was a simple greedy solution. Typically my assumption is such that
+challenges such as these are much simpler than it seems. After thinking about
+the different possibilities and realizing that at any given time a
+non-suboptimal choice could not be made, I figured that this problem was more
+complex than a greedy approach could tackle. That is, if I consider decisions
+to be about image chunks from the mars rover, if I choose a particular image
+and disregard another that spans a similar byte range, it's possible that I
+have now chosen a suboptimal image chunk to download. I even attempted to think
+of trying to "fill" the range of my image initially and then make some
+decisions as to replacing chunks I had chosen with better ones not yet seen
+(more or less as I'm parsing).
+
+Given a lot of time considering the above two approaches, I finally settled on
+a graph-based approach. In some ways this problem reminded me of minimal
+spanning trees (MST). I decided that an MST isn't applicable because MSTs are
+more concerned with every node being connected to the graph, not with having an
+optimal path from specific nodes to others.
+
+I finally settled on a branch and bound approach. From my experience, branch
+and bound is applicable to problems that require consideration of nearly every
+possibility but any given consideration could be halted if it seemed clearly
+suboptimal. My submitted code attempted this approach, though my bounding
+(pruning) step was broken at best (Also, I'm not sure why test #4 was incorrect
+yet).
+
+################################################################################
+#
+# The primary analysis
+#
+################################################################################
+
+My submitted code (not here and was uncommitted so I've lost it, personally)
+and the code written here are very similar in most approaches so an algorithmic
+analysis of this code should yield fairly similar algorithmic analysis of my
+submitted code via hackerrank.
+
+First, to construct a graph from the list of image chunks, I build a sorted
+list using insertion sort (O(n log n)--ascending by first index then second
+index. The main purpose of this list is so that as image chunks are parsed its
+possible to create connections to other image chunks without comparing every
+image chunk to every other image chunk (O(n^2)). While building this list, I
+also point a dummy node (image chunk of 0,0) to image chunks that start
+with 0, and mark final chunks that have an ending byte index equal to the size of
+the mars rover image. This simplifies starting the traversal across the
+graph. Marking chunks as final, or end, chunks allows me to more easily know
+when the cost to download a chunk is something that should be considered a
+possible answer.
+
+The algorithmic analysis of the graph traversal is a bit tricky. Because every
+node maintains the cost of the optimal path leading to it, it makes pruning
+clearly suboptimal paths much easier. In this way, traversal appears to be O(n)
+with respect to the number of edges, not the number of nodes. To consider a
+conservative upper bound of the number of edges, we observe that a fully
+connected undirected graph may have (n(n - 1) / 2) edges. We compare our graph
+to an undirected graph although ours is directed because there is no way to
+have a back edge (an edge represents going to the next chunk in sequence, and
+so there are no edges going to the previous chunk in sequence). But also, in
+many cases, the number of edges will be much lower than (n (n - 1) / 2). Notice
+that to have a fully connected graph means that it would be possible to go from
+one node (say, the dummy node 0,0) to every other node. This would mean that
+every image chunk we are considering starts at 0, and since we are guaranteed
+that the whole image is downloadable, that means that at least one such chunk
+also has the last byte of the image. Thus, it's impossible to have a fully
+connected graph. Of course, it's very difficult to reason about a more
+reasonable estimation than (n(n - 1)/2), so for now we will assume
+O(n(n-1)/2)--approximately O(n^2).
+
+Additionally, regarding graph traversal, an efficient traversal relies on
+computing the cost of each path leading to a particular node, A, before the
+cost of paths leading to nodes after A are computed. For example, let's say we
+have 3 image chunks: A(0, 300), B(250, 400), C(300, 500). While it seems clear
+that A->C is better than A->B->C, we must still compute each path to be sure.
+Now if we let C be an internal node for some graph G, then it's reasonable to
+assume that C has edges to other nodes D, E, etc. that span image chunks past
+500. If we employ a DFS traversal to our graph, then we would possibly explore
+the path A->B->C->D->etc. Then, when computing A->C afterwards, we realize that
+A->B->C is a suboptimal path and so the cost from C->D->etc must then be
+recomputed given the cost of the path A->C. In a case such as this, the
+complexity of traversal actually increases beyond O(n^2). To prevent this (and
+so I don't have to provide the analysis of a worst case DFS traversal) we use a
+BFS traversal and maintain information on whether the cost of each path to a
+node has been computed in order to prevent re-computations. In the code here, I
+use a queue and if all paths to a node have not been calculated then I simply
+move the node to the end of the queue so that it will be ready for traversal
+after another pass through the queue. A way to improve this, though likely only
+by a constant, would be to use a priority queue that prioritizes node order
+based on number of paths leading to the node left to compute.
+
+################################################################################
+#
+# The determined algorithmic complexity
+#
+################################################################################
+
+Given the above analysis, I believe the complexity of my approach is O(n log n)
++ O(n^2). Determining the time complexity T(n) would be more difficult and will
+perhaps be included later for thoroughness and fun.
+
+
+The problem with my
+submitted version is that the pruning does not work until a path has been
+completed, which means that every possible internal path is computed, a *lot*
+of which is duplicate effort, particularly in cases of highly connected graphs.
+The approach coded and analyzed here in some ways is a dynamic programming
+approach, if you consider that the subproblem to optimize is the path between a
+subset of nodes (or rather, constructing a subset of the original image). But
+with the way that the traversal works, it's difficult for me to say whether it
+actually is dynamic programming.
+'''
+
 import os
 import sys
 

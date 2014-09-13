@@ -5,25 +5,19 @@
 #
 ################################################################################
 
-There were a couple different approaches I tried to apply to the given problem
-but that very quickly did not pan out.
+When reading the problem statement I immediately thought dynamic programming
+would be ideal. However, it was difficult for me to phrase the problem in terms
+of sub problems. I was sure that given a starting chunk, there would be a
+dynamic programming approach such that you consider the starting chunk A, all
+chunks B, C, etc. that overlap or are contiguous with A. Then choosing the best
+of B, C, etc. you repeat again. Unfortunately, I could not figure out how to be
+sure that a choice I made would be optimal.
 
-Reading the problem statement I immediately though dynamic programming, but had
-difficulty trying to think of how to phrase the problem in such a way as
-to have a sub problem that could be optimized.
-
-Given that a dynamic programming approach wasn't applicable, my fallback
-approach was a simple greedy solution. Typically my assumption is such that
-challenges such as these are much simpler than it seems. After thinking about
-the different possibilities and realizing that at any given time a
-non-suboptimal choice could not be made, I figured that this problem was more
-complex than a greedy approach could tackle. That is, if I consider decisions
-to be about image chunks from the mars rover, if I choose a particular image
-and disregard another that spans a similar byte range, it's possible that I
-have now chosen a suboptimal image chunk to download. I even attempted to think
-of trying to "fill" the range of my image initially and then make some
-decisions as to replacing chunks I had chosen with better ones not yet seen
-(more or less as I'm parsing).
+Then, I wanted to try a greedy approach. Unfortunately, I had a similar
+problem, where I couldn't really think about the problem statement in a way
+that allowed me to make good, greedy decisions. I could not convince myself
+that there was a way to make decisions that were guaranteed not
+sub-optimal. 
 
 Given a lot of time considering the above two approaches, I finally settled on
 a graph-based approach. In some ways this problem reminded me of minimal
@@ -31,12 +25,13 @@ spanning trees (MST). I decided that an MST isn't applicable because MSTs are
 more concerned with every node being connected to the graph, not with having an
 optimal path from specific nodes to others.
 
-I finally settled on a branch and bound approach. From my experience, branch
-and bound is applicable to problems that require consideration of nearly every
-possibility but any given consideration could be halted if it seemed clearly
-suboptimal. My submitted code attempted this approach, though my bounding
-(pruning) step was broken at best (Also, I'm not sure why test #4 was incorrect
-yet).
+Considering I could not think of any way to arrive at an optimal solution other
+than trying nearly every combination of image chunks, I finally settled on a
+branch and bound approach. From my experience, branch and bound is applicable
+to problems that require consideration of nearly every possibility but any
+computations could be halted if it seemed clearly suboptimal. My submitted code
+attempted this approach, though my bounding (pruning) step was broken at best
+(Also, I'm not sure why test #4 was incorrect yet).
 
 ################################################################################
 #
